@@ -1,0 +1,186 @@
+package framework.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import framework.arena.Action
+import framework.arena.Direction
+import framework.arena.GameEngine
+import framework.arena.MatchStatus
+import framework.arena.RobotBrain
+import framework.arena.RobotState
+import framework.arena.Sensors
+import kotlinx.coroutines.delay
+import kotlin.random.Random
+
+// ---------------------------------------------------------------------------
+// Fallback-Test-Bots: NUR zum Smoke-Testen der UI, bevor die "echten" Bots aus
+// BotRegistry verfügbar sind. Werden in App() nur verwendet, falls die von
+// außen übergebene availableBrains-Liste weniger als 2 Einträge enthält.
+// ---------------------------------------------------------------------------
+
+/** Bewegt sich jeden Tick in eine zufällige Richtung. */
+private class RandomWalkerTestBrain : RobotBrain {
+    override val name = "TestBot-Random"
+    override fun decide(sensors: Sensors): Action {
+        return Action.Move(Direction.entries.random())
+    }
+}
+
+/** Schießt jeden Tick stur nach Osten, bewegt sich nie. */
+private class FixedShooterTestBrain : RobotBrain {
+    override val name = "TestBot-Schütze"
+    override fun decide(sensors: Sensors): Action {
+        return Action.Shoot(Direction.EAST)
+    }
+}
+
+/** Verfolgt den nächstgelegenen gegnerischen Roboter und schießt, wenn möglich in dessen Richtung. */
+private class ChaserTestBrain : RobotBrain {
+    override val name = "TestBot-Jäger"
+    override fun decide(sensors: Sensors): Action {
+        val target = sensors.others.minByOrNull {
+            kotlin.math.abs(it.position.x - sensors.self.position.x) +
+                kotlin.math.abs(it.position.y - sensors.self.position.y)
+        } ?: return Action.Wait
+
+        val dx = target.position.x - sensors.self.position.x
+        val dy = target.position.y - sensors.self.position.y
+
+        // Falls in gleicher Reihe/Spalte, direkt schießen, sonst näherkommen.
+        return when {
+            dx == 0 && dy < 0 -> Action.Shoot(Direction.NORTH)
+            dx == 0 && dy > 0 -> Action.Shoot(Direction.SOUTH)
+            dy == 0 && dx > 0 -> Action.Shoot(Direction.EAST)
+            dy == 0 && dx < 0 -> Action.Shoot(Direction.WEST)
+            kotlin.math.abs(dx) > kotlin.math.abs(dy) -> Action.Move(if (dx > 0) Direction.EAST else Direction.WEST)
+            else -> Action.Move(if (dy > 0) Direction.SOUTH else Direction.NORTH)
+        }
+    }
+}
+
+/** Liefert 3 einfache Fallback-Bots für den Smoke-Test der UI. */
+private fun fallbackTestBrains(): List<RobotBrain> = listOf(
+    RandomWalkerTestBrain(),
+    FixedShooterTestBrain(),
+    ChaserTestBrain()
+)
+
+/**
+ * Einstiegspunkt der UI. [availableBrains] wird von außen (Main.kt, später via
+ * BotRegistry) übergeben. Falls davon weniger als 2 Einträge kommen (z.B.
+ * solange die echten Bots noch nicht fertig sind), greifen wir auf 3 einfache
+ * eigene Test-Bots zurück, damit die App trotzdem sofort startbar/testbar ist.
+ */
+@Composable
+fun App(availableBrains: List<RobotBrain>) {
+    val brains = remember(availableBrains) {
+        if (availableBrains.size < 2) fallbackTestBrains() else availableBrains
+    }
+
+    var selectedBrainIndices by remember { mutableStateOf(brains.indices.toSet()) }
+    var tickIntervalMs by remember { mutableStateOf(300) }
+    var isRunning by remember { mutableStateOf(false) }
+    // Wird bei jedem Reset erhöht, damit der laufende LaunchedEffect der
+    // Tick-Schleife sauber abgebrochen und mit frischem Zustand neu gestartet
+    // wird, statt mit stale State (alte Engine-Referenz) weiterzulaufen.
+    var matchGeneration by remember { mutableStateOf(0) }
+
+    val engine = remember(matchGeneration) { GameEngine() }
+    var robots by remember(matchGeneration) { mutableStateOf<List<RobotState>>(emptyList()) }
+    var logEntries by remember(matchGeneration) { mutableStateOf<List<String>>(emptyList()) }
+
+    // Startet das Match einmalig für jede Engine-Generation mit den aktuell
+    // ausgewählten Brains.
+    LaunchedEffect(matchGeneration) {
+        val selected = selectedBrainIndices.sorted().map { brains[it] }
+        engine.startMatch(selected)
+        robots = engine.currentStates()
+    }
+
+    // Die eigentliche Tick-Schleife: läuft solange isRunning true ist und das
+    // Match noch nicht beendet wurde. matchGeneration ist Teil des Keys, damit
+    // ein Reset diese Coroutine sauber neu startet statt mit alter Engine
+    // weiterzumachen.
+    LaunchedEffect(isRunning, tickIntervalMs, matchGeneration) {
+        while (isRunning && engine.currentStatus() == MatchStatus.RUNNING) {
+            delay(tickIntervalMs.toLong())
+            val status = engine.step(onLog = { message ->
+                logEntries = (logEntries + message).takeLast(500)
+            })
+            robots = engine.currentStates()
+            if (status == MatchStatus.FINISHED) {
+                isRunning = false
+                val result = engine.result()
+                val summary = when {
+                    result == null -> "Match beendet."
+                    result.isDraw -> "Match beendet nach ${result.ticksPlayed} Ticks: Unentschieden."
+                    else -> {
+                        val winner = result.finalStates.find { it.id == result.winnerId }
+                        "Match beendet nach ${result.ticksPlayed} Ticks: ${winner?.teamName ?: result.winnerId} gewinnt!"
+                    }
+                }
+                logEntries = (logEntries + summary).takeLast(500)
+            }
+        }
+    }
+
+    DisposableEffect(engine) {
+        onDispose { engine.shutdown() }
+    }
+
+    Row(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+        ArenaCanvas(
+            robots = robots,
+            arenaWidth = 10,
+            arenaHeight = 10,
+            modifier = Modifier.weight(1f)
+        )
+
+        Column(
+            modifier = Modifier.width(360.dp).padding(start = 8.dp),
+            verticalArrangement = Arrangement.Top
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            ) {
+                Controls(
+                    availableBrains = brains,
+                    selectedBrainIndices = selectedBrainIndices,
+                    onSelectedBrainIndicesChange = { selectedBrainIndices = it },
+                    isRunning = isRunning,
+                    onIsRunningChange = { isRunning = it },
+                    tickIntervalMs = tickIntervalMs,
+                    onTickIntervalMsChange = { tickIntervalMs = it },
+                    onReset = {
+                        isRunning = false
+                        matchGeneration++
+                    }
+                )
+                Scoreboard(
+                    robots = robots,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            LogPanel(
+                logEntries = logEntries,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
