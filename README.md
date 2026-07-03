@@ -23,6 +23,9 @@ Dieses Repo ist der **technische Teil** des Kurses. Das **pädagogische Material
 Anleitung mit Beispielen, wie ihr euren Roboter steuert:
 [`docs/schueler-framework-guide.md`](docs/schueler-framework-guide.md).
 
+Kurzer Überblick zu Git/GitHub (nicht Teil dieses Praktikums, aber gut zu kennen):
+[`docs/git-github-basics.md`](docs/git-github-basics.md).
+
 ## Projekt starten
 
 Voraussetzung: JDK 17+ (JetBrains Runtime aus IntelliJ reicht), Internetzugang beim ersten Build (Gradle lädt Dependencies von Maven Central).
