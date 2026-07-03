@@ -233,4 +233,110 @@ class GameEngineTest {
         assertTrue(!targetState.alive)
         assertEquals(10, ticks)
     }
+
+    // ---------- GameEngine.result() ----------
+
+    @Test
+    fun `Match mit nur einem Bot ist sofort beendet, dieser Bot gewinnt`() {
+        val engine = GameEngine()
+        engine.startMatch(listOf(WaitingBrain("Einsamer Bot")))
+
+        assertEquals(MatchStatus.FINISHED, engine.currentStatus())
+        val result = engine.result()
+        assertNotNull(result)
+        assertEquals("bot-0", result.winnerId)
+        assertTrue(!result.isDraw)
+        assertEquals(0, result.ticksPlayed)
+    }
+
+    @Test
+    fun `zwei wartende Bots enden nach maxTicks unentschieden`() {
+        val engine = GameEngine(arenaWidth = 10, arenaHeight = 10, maxTicks = 3)
+        engine.startMatch(listOf(WaitingBrain("A"), WaitingBrain("B")))
+
+        var status = MatchStatus.RUNNING
+        while (status == MatchStatus.RUNNING) {
+            status = engine.step { }
+        }
+
+        val result = engine.result()
+        assertNotNull(result)
+        assertTrue(result.isDraw)
+        assertEquals(null, result.winnerId)
+        assertEquals(3, result.ticksPlayed)
+        assertTrue(result.finalStates.all { it.alive })
+    }
+
+    /** Zielt in jedem Tick auf den einzigen Gegner, sofern dieser in Sichtlinie steht. */
+    private class TowardEnemyShooterBrain(override val name: String) : RobotBrain {
+        override fun decide(sensors: Sensors): Action {
+            val enemy = sensors.others.firstOrNull() ?: return Action.Wait
+            return when {
+                enemy.position.x > sensors.self.position.x -> Action.Shoot(Direction.EAST)
+                enemy.position.x < sensors.self.position.x -> Action.Shoot(Direction.WEST)
+                enemy.position.y > sensors.self.position.y -> Action.Shoot(Direction.SOUTH)
+                else -> Action.Shoot(Direction.NORTH)
+            }
+        }
+    }
+
+    @Test
+    fun `beide Bots toeten sich gleichzeitig, Ergebnis ist unentschieden ohne Ueberlebende`() {
+        // 2x1-Arena: beide Startpositionen liegen erzwungenermaßen nebeneinander in
+        // derselben Reihe, unabhängig davon, welcher Bot welchen der zwei
+        // Perimeter-Plätze durch das Zufalls-Shuffling in startMatch() bekommt.
+        val engine = GameEngine(arenaWidth = 2, arenaHeight = 1, maxTicks = 50, startHealth = 100, damagePerHit = 10)
+        engine.startMatch(listOf(TowardEnemyShooterBrain("A"), TowardEnemyShooterBrain("B")))
+
+        var status = MatchStatus.RUNNING
+        while (status == MatchStatus.RUNNING) {
+            status = engine.step { }
+        }
+
+        val result = engine.result()
+        assertNotNull(result)
+        assertTrue(result.isDraw)
+        assertEquals(null, result.winnerId)
+        assertEquals(10, result.ticksPlayed)
+        assertTrue(result.finalStates.none { it.alive })
+    }
+
+    // ---------- GameEngine.lastShots() ----------
+
+    @Test
+    fun `lastShots liefert Treffer-Schuss mit Zielposition des getroffenen Bots`() {
+        val engine = GameEngine(arenaWidth = 2, arenaHeight = 1, maxTicks = 10)
+        engine.startMatch(listOf(TowardEnemyShooterBrain("A"), TowardEnemyShooterBrain("B")))
+
+        engine.step { }
+
+        val shots = engine.lastShots()
+        assertEquals(2, shots.size)
+        val positionsById = engine.currentStates().associate { it.id to it.position }
+        for (shot in shots) {
+            assertTrue(shot.hitBot)
+            val otherId = if (shot.shooterId == "bot-0") "bot-1" else "bot-0"
+            assertEquals(positionsById.getValue(otherId), shot.toPosition)
+            assertEquals(positionsById.getValue(shot.shooterId), shot.fromPosition)
+        }
+    }
+
+    @Test
+    fun `lastShots liefert Fehlschuss mit Zielposition am Arena-Rand`() {
+        // Bots stehen diagonal zueinander (kein gemeinsames Row/Col) -> ein fester
+        // Schuss nach Osten kann den Gegner nie treffen, egal welche der zwei
+        // Diagonalpositionen der Schuetze durch das Shuffling bekommt.
+        val engine = GameEngine(arenaWidth = 5, arenaHeight = 5, maxTicks = 10)
+        engine.startMatch(listOf(WaitingBrain("Ziel"), ShooterBrain("Schuetze")))
+
+        engine.step { }
+        engine.step { }
+
+        val shots = engine.lastShots()
+        assertEquals(1, shots.size)
+        val shot = shots.single()
+        assertTrue(!shot.hitBot)
+        assertEquals(shot.fromPosition.y, shot.toPosition.y)
+        assertEquals(4, shot.toPosition.x)
+    }
 }

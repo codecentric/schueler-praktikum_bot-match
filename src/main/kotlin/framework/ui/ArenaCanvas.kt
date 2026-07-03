@@ -14,7 +14,9 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.sp
+import framework.arena.Direction
 import framework.arena.RobotState
+import framework.arena.ShotEvent
 import kotlin.math.min
 
 /**
@@ -59,6 +61,7 @@ fun ArenaCanvas(
     robots: List<RobotState>,
     arenaWidth: Int,
     arenaHeight: Int,
+    shots: List<ShotEvent> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
@@ -89,6 +92,40 @@ fun ArenaCanvas(
         }
 
         val radius = min(cellWidth, cellHeight) * 0.35f
+
+        // Schuss-Strahlen: Linie vom Schützen bis zum getroffenen Bot bzw. Arena-Rand
+        // (falls kein Treffer). Bei Treffer zusätzlich eine kleine Explosion im Bot-Zentrum.
+        val shotColor = Color(0xFFFFD54F)
+        val explosionColor = Color(0xFFFF5722)
+        val shotStrokeWidth = min(cellWidth, cellHeight) * 0.03f
+        for (shot in shots) {
+            val startX = (shot.fromPosition.x + 0.5f) * cellWidth
+            val startY = (shot.fromPosition.y + 0.5f) * cellHeight
+            val targetX = (shot.toPosition.x + 0.5f) * cellWidth
+            val targetY = (shot.toPosition.y + 0.5f) * cellHeight
+
+            // Bei Treffer vor dem Ziel-Kreisrand stoppen, sonst verdeckt der Bot-Kreis
+            // (der danach gezeichnet wird) die Linie zur Explosion. Bei Fehlschuss
+            // bis zur echten Arena-Wand zeichnen, nicht nur bis zur Zellenmitte.
+            val (endX, endY) = when {
+                shot.hitBot && shot.direction == Direction.NORTH -> targetX to targetY + radius
+                shot.hitBot && shot.direction == Direction.SOUTH -> targetX to targetY - radius
+                shot.hitBot && shot.direction == Direction.EAST -> targetX - radius to targetY
+                shot.hitBot && shot.direction == Direction.WEST -> targetX + radius to targetY
+                shot.direction == Direction.NORTH -> targetX to 0f
+                shot.direction == Direction.SOUTH -> targetX to size.height
+                shot.direction == Direction.EAST -> size.width to targetY
+                else -> 0f to targetY
+            }
+
+            drawLine(
+                color = shotColor,
+                start = Offset(startX, startY),
+                end = Offset(endX, endY),
+                strokeWidth = shotStrokeWidth,
+                cap = StrokeCap.Round
+            )
+        }
 
         for (robot in robots) {
             val centerX = (robot.position.x + 0.5f) * cellWidth
@@ -154,6 +191,28 @@ fun ArenaCanvas(
                     end = Offset(centerX + xExtent, centerY - xExtent),
                     strokeWidth = stroke.width,
                     cap = stroke.cap
+                )
+            }
+        }
+
+        // Explosion NACH den Bots gezeichnet, damit sie über dem getroffenen Bot
+        // sichtbar bleibt statt vom Bot-Kreis verdeckt zu werden.
+        val explosionRayCount = 8
+        val explosionInnerRadius = radius * 0.3f
+        val explosionOuterRadius = radius * 0.75f
+        for (shot in shots.filter { it.hitBot }) {
+            val centerX = (shot.toPosition.x + 0.5f) * cellWidth
+            val centerY = (shot.toPosition.y + 0.5f) * cellHeight
+            for (i in 0 until explosionRayCount) {
+                val angle = 2 * Math.PI * i / explosionRayCount
+                val cos = kotlin.math.cos(angle).toFloat()
+                val sin = kotlin.math.sin(angle).toFloat()
+                drawLine(
+                    color = explosionColor,
+                    start = Offset(centerX + explosionInnerRadius * cos, centerY + explosionInnerRadius * sin),
+                    end = Offset(centerX + explosionOuterRadius * cos, centerY + explosionOuterRadius * sin),
+                    strokeWidth = shotStrokeWidth * 1.5f,
+                    cap = StrokeCap.Round
                 )
             }
         }

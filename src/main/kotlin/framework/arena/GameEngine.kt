@@ -57,6 +57,9 @@ fun resolveMoves(
 /** Ein Bot möchte in diesem Tick in [direction] schießen. */
 data class ShotRequest(val botId: String, val direction: Direction)
 
+/** Ein tatsächlich abgefeuerter Schuss in einem Tick, für die UI-Anzeige (Laserstrahl). */
+data class ShotEvent(val shooterId: String, val fromPosition: Position, val toPosition: Position, val hitBot: Boolean, val direction: Direction)
+
 /**
  * Löst alle Schusswünsche EINES Ticks auf. Wird NACH [resolveMoves] aufgerufen
  * und rechnet daher mit den NEUEN Positionen (nach der Bewegungsauflösung).
@@ -88,25 +91,38 @@ fun resolveShots(
         if (shooterId !in aliveIds) continue
         val shooterPos = positionsAfterMove[shooterId] ?: continue
 
-        var nearestTargetId: String? = null
-        var nearestDistance = Int.MAX_VALUE
+        val targetId = nearestTargetInDirection(shooterId, shooterPos, shot.direction, aliveIds, positionsAfterMove)
 
-        for (candidateId in aliveIds) {
-            if (candidateId == shooterId) continue
-            val pos = positionsAfterMove[candidateId] ?: continue
-            val distance = distanceInDirection(shooterPos, pos, shot.direction) ?: continue
-            if (distance < nearestDistance) {
-                nearestDistance = distance
-                nearestTargetId = candidateId
-            }
-        }
-
-        nearestTargetId?.let { targetId ->
-            damageByTarget[targetId] = (damageByTarget[targetId] ?: 0) + damage
+        targetId?.let {
+            damageByTarget[it] = (damageByTarget[it] ?: 0) + damage
         }
     }
     return damageByTarget
 }
+
+/** Liefert die ID des nächstgelegenen lebenden Bots in [direction] von [shooterPos] aus, oder null. */
+internal fun nearestTargetInDirection(
+    shooterId: String,
+    shooterPos: Position,
+    direction: Direction,
+    aliveIds: Set<String>,
+    positionsAfterMove: Map<String, Position>
+): String? {
+    var nearestTargetId: String? = null
+    var nearestDistance = Int.MAX_VALUE
+
+    for (candidateId in aliveIds) {
+        if (candidateId == shooterId) continue
+        val pos = positionsAfterMove[candidateId] ?: continue
+        val distance = distanceInDirection(shooterPos, pos, direction) ?: continue
+        if (distance < nearestDistance) {
+            nearestDistance = distance
+            nearestTargetId = candidateId
+        }
+    }
+    return nearestTargetId
+}
+
 
 /**
  * Liefert den Abstand von [from] zu [to] entlang [direction], falls [to] exakt
@@ -118,6 +134,16 @@ private fun distanceInDirection(from: Position, to: Position, direction: Directi
         Direction.SOUTH -> if (to.x == from.x && to.y > from.y) to.y - from.y else null
         Direction.EAST -> if (to.y == from.y && to.x > from.x) to.x - from.x else null
         Direction.WEST -> if (to.y == from.y && to.x < from.x) from.x - to.x else null
+    }
+}
+
+/** Liefert die Position am Arena-Rand, an der ein Schuss aus [from] in [direction] endet (kein Ziel getroffen). */
+private fun edgePosition(from: Position, direction: Direction, arenaWidth: Int, arenaHeight: Int): Position {
+    return when (direction) {
+        Direction.NORTH -> Position(from.x, 0)
+        Direction.SOUTH -> Position(from.x, arenaHeight - 1)
+        Direction.EAST -> Position(arenaWidth - 1, from.y)
+        Direction.WEST -> Position(0, from.y)
     }
 }
 
@@ -150,14 +176,20 @@ class GameEngine(
     private var states: LinkedHashMap<String, RobotState> = linkedMapOf()
     private var tick: Int = 0
     private var status: MatchStatus = MatchStatus.RUNNING
+    private var lastShots: List<ShotEvent> = emptyList()
 
     /** Startet ein neues Match mit den gegebenen Bot-Gehirnen. */
     fun startMatch(brains: List<RobotBrain>) {
         botExecutor.reset()
         tick = 0
         status = if (brains.size <= 1) MatchStatus.FINISHED else MatchStatus.RUNNING
+        lastShots = emptyList()
 
-        val startPositions = computeStartPositions(brains.size, arenaWidth, arenaHeight)
+        // computeStartPositions() selbst bleibt deterministisch (siehe dort), damit
+        // sie isoliert testbar ist. Für ein echtes Match werden die Plätze aber
+        // zufällig auf die Bots verteilt, damit nicht z.B. immer bot-0 in der Ecke
+        // oben links landet.
+        val startPositions = computeStartPositions(brains.size, arenaWidth, arenaHeight).shuffled()
         brainById = brains.indices.associate { i -> botIdOf(i) to brains[i] }
         states = linkedMapOf()
         brains.forEachIndexed { i, brain ->
@@ -208,6 +240,14 @@ class GameEngine(
             if (action is Action.Shoot) ShotRequest(id, action.direction) else null
         }
         val damageByTarget = resolveShots(positionsAfterMove, aliveSnapshot, shotRequests, damagePerHit)
+        val aliveIds = aliveSnapshot.map { it.id }.toSet()
+        lastShots = shotRequests.mapNotNull { request ->
+            val from = positionsAfterMove[request.botId] ?: return@mapNotNull null
+            val targetId = nearestTargetInDirection(request.botId, from, request.direction, aliveIds, positionsAfterMove)
+            val to = targetId?.let { positionsAfterMove[it] }
+                ?: edgePosition(from, request.direction, arenaWidth, arenaHeight)
+            ShotEvent(request.botId, from, to, hitBot = targetId != null, request.direction)
+        }
 
         for (robot in aliveSnapshot) {
             val newPosition = positionsAfterMove[robot.id] ?: robot.position
@@ -225,6 +265,9 @@ class GameEngine(
     }
 
     fun currentStates(): List<RobotState> = states.values.toList()
+
+    /** Schüsse des zuletzt ausgeführten Ticks, für die UI-Anzeige (Laserstrahlen). */
+    fun lastShots(): List<ShotEvent> = lastShots
 
     fun currentTick(): Int = tick
 

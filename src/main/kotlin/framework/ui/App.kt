@@ -25,6 +25,7 @@ import framework.arena.MatchStatus
 import framework.arena.RobotBrain
 import framework.arena.RobotState
 import framework.arena.Sensors
+import framework.arena.ShotEvent
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -103,6 +104,7 @@ fun App(availableBrains: List<RobotBrain>) {
 
     val engine = remember(matchGeneration) { GameEngine() }
     var robots by remember(matchGeneration) { mutableStateOf<List<RobotState>>(emptyList()) }
+    var shots by remember(matchGeneration) { mutableStateOf<List<ShotEvent>>(emptyList()) }
     var logEntries by remember(matchGeneration) { mutableStateOf<List<String>>(emptyList()) }
 
     // Startet das Match einmalig für jede Engine-Generation mit den aktuell
@@ -118,12 +120,17 @@ fun App(availableBrains: List<RobotBrain>) {
     // ein Reset diese Coroutine sauber neu startet statt mit alter Engine
     // weiterzumachen.
     LaunchedEffect(isRunning, tickIntervalMs, matchGeneration) {
+        // Schuss-Linien werden am Ende jedes Ticks kurz ausgeblendet (blankMs), damit
+        // bei mehreren Schüssen in Folge in dieselbe Richtung sichtbar bleibt, dass es
+        // pro Tick ein neuer Schuss ist, statt einer durchgehenden Linie.
+        val blankMs = (tickIntervalMs / 3).coerceAtMost(80)
         while (isRunning && engine.currentStatus() == MatchStatus.RUNNING) {
-            delay(tickIntervalMs.toLong())
+            delay((tickIntervalMs - blankMs).toLong())
             val status = engine.step(onLog = { message ->
                 logEntries = (logEntries + message).takeLast(500)
             })
             robots = engine.currentStates()
+            shots = engine.lastShots()
             if (status == MatchStatus.FINISHED) {
                 isRunning = false
                 val result = engine.result()
@@ -137,6 +144,8 @@ fun App(availableBrains: List<RobotBrain>) {
                 }
                 logEntries = (logEntries + summary).takeLast(500)
             }
+            delay(blankMs.toLong())
+            shots = emptyList()
         }
     }
 
@@ -149,6 +158,7 @@ fun App(availableBrains: List<RobotBrain>) {
             robots = robots,
             arenaWidth = 10,
             arenaHeight = 10,
+            shots = shots,
             modifier = Modifier.weight(1f)
         )
 
