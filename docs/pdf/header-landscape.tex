@@ -1,0 +1,18 @@
+\usepackage[most]{tcolorbox}
+\usepackage{newunicodechar}
+\newunicodechar{→}{\textrightarrow}
+\usepackage{enumitem}
+\setlist{nosep}
+\pagestyle{empty}
+
+\newtcolorbox{storybox}{
+  breakable=false,
+  enhanced,
+  colback=white,
+  colframe=black!60,
+  boxrule=0.8pt,
+  arc=3pt,
+  left=20pt,right=20pt,top=16pt,bottom=16pt,
+  valign=top,
+  fontupper=\LARGE
+}
