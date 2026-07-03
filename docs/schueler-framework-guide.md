@@ -200,24 +200,7 @@ eigene Logik wiederverwenden könnt:
 
 ---
 
-## 4. Vom Framework fertig vorgegebene Beispiel-Bots
-
-In `bots/examples/` liegen vier fertige Bots, die ihr euch als Vorlage anschauen
-dürft (aber nicht verändern müsst):
-
-- **`RandomBot.kt`** — bewegt oder schießt zufällig in eine zufällige Richtung.
-- **`StillstandBot.kt`** — bewegt sich nie, schießt immer in eine feste Richtung.
-  Guter erster Gegner zum Testen, weil er sich nicht wehrt.
-- **`ChaserBot.kt`** — verfolgt den nächstgelegenen Gegner und schießt, sobald er
-  in Sichtlinie steht.
-- **`FluchtBot.kt`** — wie `ChaserBot`, flieht aber bei HP unter 20.
-
-Testet euren eigenen Bot am besten zuerst gegen `StillstandBot` (einfachster
-Gegner), dann gegen `ChaserBot` und `FluchtBot` (anspruchsvoller).
-
----
-
-## 5. Bot testen
+## 4. Bot testen
 
 ```bash
 ./gradlew run
@@ -231,7 +214,7 @@ passiert.
 das Spiel stürzt deswegen nicht ab. Euer Bot macht in dem Fall einfach `Wait`, bis
 ihr den Fehler behoben und neu gestartet habt.
 
-## 6. Häufige Anfängerfehler
+## 5. Häufige Anfängerfehler
 
 - **Neue Bot-Klasse angelegt, aber nicht in `teamXBots` eingetragen** → Bot
   compiliert, taucht aber nicht in der App-Auswahl auf.
