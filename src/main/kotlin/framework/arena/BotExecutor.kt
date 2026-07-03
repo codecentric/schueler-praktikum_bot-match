@@ -5,6 +5,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.random.Random
 
 /**
  * Ruft [RobotBrain.decide] geschützt auf: Schülercode kann eine Endlosschleife,
@@ -23,7 +24,13 @@ import java.util.concurrent.TimeoutException
  * Daemon-Thread hält er wenigstens den JVM-Prozess nicht am Leben, und wir geben
  * sofort `Action.Wait` zurück, sodass das Spiel weiterläuft.
  */
-class BotExecutor(private val timeoutMs: Long = 50) {
+class BotExecutor(
+    private val timeoutMs: Long = 50,
+    // Alle N Ticks wird die Bot-Entscheidung durch eine zufällige Bewegung ersetzt,
+    // um festgefahrene Situationen aufzubrechen (z.B. zwei Bots, die immer wieder
+    // aufs selbe Feld wollen und sich gegenseitig blockieren). 0 = deaktiviert.
+    private val shakeUpEveryTicks: Int = 25
+) {
 
     // Pool statt fester Thread-Anzahl, weil Threads, die in einer Endlosschleife
     // hängen bleiben, nie zurückgegeben werden - der Pool wächst dann einfach nach.
@@ -45,6 +52,14 @@ class BotExecutor(private val timeoutMs: Long = 50) {
      */
     fun decideSafely(brain: RobotBrain, sensors: Sensors, botId: String, onLog: (String) -> Unit): Action {
         if (botId in frozen) return Action.Wait
+
+        // Anti-Hänger: alle shakeUpEveryTicks Ticks eine erzwungene Zufallsbewegung,
+        // damit sich wiederholende Blockaden (z.B. zwei Bots wollen dauerhaft aufs
+        // selbe Feld) aufgelöst werden. Move statt Shoot/Wait, weil nur eine
+        // Positionsänderung die Blockade tatsächlich bricht.
+        if (shakeUpEveryTicks > 0 && sensors.tick > 0 && sensors.tick % shakeUpEveryTicks == 0) {
+            return Action.Move(Direction.entries[Random.nextInt(Direction.entries.size)])
+        }
 
         val future = executor.submit(Callable { brain.decide(sensors) })
         return try {

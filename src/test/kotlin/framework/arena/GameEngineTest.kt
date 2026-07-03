@@ -135,12 +135,12 @@ class GameEngineTest {
         }
     }
 
-    private fun dummySensors() = Sensors(
+    private fun dummySensors(tick: Int = 1) = Sensors(
         self = RobotState("x", "X", Position(0, 0), 100),
         others = emptyList(),
         arenaWidth = 5,
         arenaHeight = 5,
-        tick = 1
+        tick = tick
     )
 
     @Test
@@ -164,6 +164,31 @@ class GameEngineTest {
 
         assertEquals(Action.Wait, action)
         assertTrue(logs.any { it.contains("Zeitlimit") })
+        executor.shutdown()
+    }
+
+    @Test
+    fun `alle 25 Ticks erzwungene Zufallsbewegung statt decide-Aufruf`() {
+        val executor = BotExecutor(shakeUpEveryTicks = 25)
+        val logs = mutableListOf<String>()
+
+        // An einem Shake-up-Tick (25) darf decide() gar nicht erst aufgerufen werden -
+        // ein crashender Bot würde sonst loggen. Ergebnis ist eine Bewegung.
+        val action = executor.decideSafely(ThrowingBrain(), dummySensors(tick = 25), "crasher", logs::add)
+
+        assertTrue(action is Action.Move)
+        assertTrue(logs.isEmpty())
+        executor.shutdown()
+    }
+
+    @Test
+    fun `zwischen den Shake-up-Ticks laeuft decide normal`() {
+        val executor = BotExecutor(shakeUpEveryTicks = 25)
+        val logs = mutableListOf<String>()
+
+        val action = executor.decideSafely(WaitingBrain("Warter"), dummySensors(tick = 24), "warter", logs::add)
+
+        assertEquals(Action.Wait, action)
         executor.shutdown()
     }
 
