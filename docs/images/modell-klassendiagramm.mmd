@@ -1,0 +1,61 @@
+classDiagram
+    class Direction {
+        <<enum>>
+        NORTH
+        EAST
+        SOUTH
+        WEST
+        +dx: Int
+        +dy: Int
+    }
+
+    class Position {
+        +x: Int
+        +y: Int
+        +moved(direction) Position
+    }
+
+    class RobotState {
+        +id: String
+        +teamName: String
+        +position: Position
+        +health: Int
+        +alive: Boolean
+    }
+
+    class Sensors {
+        +self: RobotState
+        +others: List~RobotState~
+        +arenaWidth: Int
+        +arenaHeight: Int
+        +tick: Int
+    }
+
+    class Action {
+        <<sealed interface>>
+    }
+    class Move {
+        +direction: Direction
+    }
+    class Shoot {
+        +direction: Direction
+    }
+    class Wait
+
+    class RobotBrain {
+        <<interface>>
+        +name: String
+        +decide(sensors) Action
+    }
+
+    Action <|-- Move
+    Action <|-- Shoot
+    Action <|-- Wait
+    Move --> Direction
+    Shoot --> Direction
+
+    RobotState --> Position
+    Sensors --> RobotState : self
+    Sensors "1" --> "*" RobotState : others
+    RobotBrain ..> Sensors : bekommt
+    RobotBrain ..> Action : gibt zurück

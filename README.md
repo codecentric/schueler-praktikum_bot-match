@@ -23,6 +23,8 @@ Dieses Repo ist der **technische Teil** des Kurses. Das **pädagogische Material
 
 Anleitung mit Beispielen, wie ihr euren Roboter steuert:
 [`docs/schueler-framework-guide.md`](docs/schueler-framework-guide.md).
+Kurzer Überblick über die wichtigsten Objekte als Klassendiagramm:
+[`docs/modell-uebersicht.md`](docs/modell-uebersicht.md).
 
 Kurzer Überblick zu Git/GitHub (nicht Teil dieses Praktikums, aber gut zu kennen):
 [`docs/git-github-basics.md`](docs/git-github-basics.md).
