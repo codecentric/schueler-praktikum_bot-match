@@ -182,6 +182,25 @@ geprüft, nicht nacheinander. Daraus folgen drei Fälle:
 - **Zielkonflikt:** Wollen zwei oder mehr Roboter ins selbe freie Feld,
   bewegt sich keiner von ihnen.
 
+**Reihenfolge in einem Tick: erst bewegen, dann schießen.** Die Engine löst in
+jedem Tick zuerst *alle* Bewegungen auf und danach *alle* Schüsse. Das hat eine
+wichtige Folge für Treffer: Ob ein Schuss trifft, wird an der Position des Ziels
+**nach** dessen Bewegung geprüft, nicht vorher.
+
+- Ein Gegner, der sich in diesem Tick aus eurer Zeile/Spalte **heraus** bewegt,
+  wird **nicht** getroffen — obwohl er zu Tick-Beginn noch in der Linie stand.
+- Ein Gegner, der sich in diesem Tick **in** eure Zeile/Spalte **hinein** bewegt
+  (z.B. euch gerade kreuzt), **kann** getroffen werden — obwohl er vorher nicht
+  in Linie war.
+
+**Ihr seht die Zukunft nicht.** `sensors.others` zeigt euch die Positionen der
+Gegner *zu Beginn* des Ticks — also **bevor** sie sich bewegen. Wenn ihr
+entscheidet, wisst ihr noch nicht, wohin ein Gegner in diesem Tick zieht. Ein
+Schuss auf ein bewegliches Ziel ist deshalb immer eine **Vorhersage**, kein
+sicherer Treffer. Zuverlässiger trefft ihr Gegner, deren nächsten Zug ihr
+abschätzen könnt — z.B. einen, der stillsteht, oder indem ihr euch so
+positioniert, dass ihr eine wahrscheinliche Route abdeckt.
+
 ---
 
 ## 3. Nützliche Kotlin-Bausteine für eure Bot-Logik
