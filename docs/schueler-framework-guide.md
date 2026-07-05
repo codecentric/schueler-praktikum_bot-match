@@ -94,6 +94,8 @@ Jede Position hat ein `x` (Spalte) und ein `y` (Zeile). `(0, 0)` ist **oben link
 und **größer**, je weiter unten. Nach Norden (oben) laufen heißt also: `y` sinkt,
 nicht steigt.
 
+<img src="images/arena-koordinaten.png" alt="10x10-Arena mit Koordinatensystem: (0,0) oben links, x nach rechts, y nach unten" width="550">
+
 ```kotlin
 val meinePosition = sensors.self.position
 val binAmLinkenRand = meinePosition.x == 0
