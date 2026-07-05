@@ -20,6 +20,14 @@ class FluchtBot(override val name: String = "FluchtBot") : RobotBrain {
         const val FLEE_HEALTH_THRESHOLD = 20
     }
 
+    /**
+     * Greift den nächsten Gegner an, solange die eigenen HP über [FLEE_HEALTH_THRESHOLD]
+     * liegen, sonst flüchtet er von ihm weg.
+     *
+     * @param sensors aktueller Wahrnehmungszustand (eigene HP/Position, lebende Gegner).
+     * @return [Action.Wait] wenn kein Gegner mehr lebt, sonst je nach eigener HP
+     *   Angriffs- oder Fluchtaktion.
+     */
     override fun decide(sensors: Sensors): Action {
         val target = findNearestEnemy(sensors) ?: return Action.Wait
 
@@ -30,6 +38,12 @@ class FluchtBot(override val name: String = "FluchtBot") : RobotBrain {
         }
     }
 
+    /**
+     * Sucht unter allen lebenden Gegnern denjenigen mit kleinster Manhattan-Distanz.
+     *
+     * @param sensors liefert [Sensors.self] (Ausgangspunkt) und [Sensors.others] (Kandidaten).
+     * @return nächstgelegener [RobotState] oder `null`, wenn kein Gegner mehr lebt.
+     */
     private fun findNearestEnemy(sensors: Sensors): RobotState? {
         if (sensors.others.isEmpty()) return null
         return sensors.others.minByOrNull { other ->
@@ -38,6 +52,14 @@ class FluchtBot(override val name: String = "FluchtBot") : RobotBrain {
         }
     }
 
+    /**
+     * Schießt bei exakter Ausrichtung auf [target], sonst Bewegung zur Annäherung
+     * (Achse mit größerem Abstand zuerst) - identische Logik wie [ChaserBot.decide].
+     *
+     * @param sensors liefert die eigene Position.
+     * @param target das anzugreifende Ziel.
+     * @return [Action.Shoot] bei Sichtlinie, sonst [Action.Move] zur Annäherung.
+     */
     private fun attack(sensors: Sensors, target: RobotState): Action {
         val dx = target.position.x - sensors.self.position.x
         val dy = target.position.y - sensors.self.position.y
@@ -52,7 +74,17 @@ class FluchtBot(override val name: String = "FluchtBot") : RobotBrain {
         }
     }
 
-    /** Wählt die Richtung, die den Manhattan-Abstand zu [target] am meisten vergrößert. */
+    /**
+     * Testet alle vier [Direction]-Werte durch und wählt die, die den simulierten
+     * Abstand zu [target] am meisten vergrößert ([Direction.entries]`.maxByOrNull`),
+     * statt nur die Achse mit größerem Ausschlag zu betrachten. Bricht sicher ab
+     * (kein Move), wenn sich der Abstand durch keine Richtung verbessern lässt
+     * (z.B. Ecke der Arena).
+     *
+     * @param sensors liefert die eigene Position.
+     * @param target der Gegner, von dem geflohen wird.
+     * @return [Action.Move] in die beste Fluchtrichtung, sonst [Action.Wait].
+     */
     private fun fleeFrom(sensors: Sensors, target: RobotState): Action {
         val self = sensors.self.position
         val currentDistance = abs(target.position.x - self.x) + abs(target.position.y - self.y)

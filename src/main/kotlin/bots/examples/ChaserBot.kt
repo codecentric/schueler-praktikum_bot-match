@@ -15,6 +15,14 @@ import kotlin.math.abs
  * über mehrere Ticks).
  */
 class ChaserBot(override val name: String = "ChaserBot") : RobotBrain {
+    /**
+     * Greift den nächsten Gegner an: schießt sofort, wenn er in gleicher Reihe/Spalte
+     * steht, sonst wird die Achse mit dem größeren Abstand zuerst angeglichen.
+     *
+     * @param sensors aktueller Wahrnehmungszustand (eigene Position, lebende Gegner).
+     * @return [Action.Wait] wenn kein Gegner mehr lebt, sonst [Action.Shoot] bei
+     *   exakter Ausrichtung oder [Action.Move] zur Annäherung.
+     */
     override fun decide(sensors: Sensors): Action {
         val target = findNearestEnemy(sensors) ?: return Action.Wait
 
@@ -31,6 +39,13 @@ class ChaserBot(override val name: String = "ChaserBot") : RobotBrain {
         }
     }
 
+    /**
+     * Sucht unter allen lebenden Gegnern denjenigen mit kleinster Manhattan-Distanz
+     * ([abs]`(dx) + `[abs]`(dy)`, passend zum Grid ohne Diagonalbewegung).
+     *
+     * @param sensors liefert [Sensors.self] (Ausgangspunkt) und [Sensors.others] (Kandidaten).
+     * @return nächstgelegener [RobotState] oder `null`, wenn kein Gegner mehr lebt.
+     */
     private fun findNearestEnemy(sensors: Sensors): RobotState? {
         if (sensors.others.isEmpty()) return null
         return sensors.others.minByOrNull { other ->

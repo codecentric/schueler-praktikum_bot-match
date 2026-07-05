@@ -37,6 +37,14 @@ import kotlin.math.abs
  */
 class PowerBot(override val name: String = "PowerBot") : RobotBrain {
 
+    /**
+     * Priorisiert Gegner in Sichtlinie (schwächster zuerst), sonst Annäherung an
+     * das beste Ziel nach Distanz+HP-Score. Nie Flucht, siehe Klassen-Doc.
+     *
+     * @param sensors aktueller Wahrnehmungszustand (eigene Position, lebende Gegner).
+     * @return [Action.Wait] wenn kein Gegner mehr lebt, sonst [Action.Shoot] auf das
+     *   priorisierte Ziel in Sichtlinie oder [Action.Move] zur Annäherung.
+     */
     override fun decide(sensors: Sensors): Action {
         val self = sensors.self
         val enemies = sensors.others
@@ -54,13 +62,21 @@ class PowerBot(override val name: String = "PowerBot") : RobotBrain {
         return moveTowardAlignment(self.position, target.position)
     }
 
-    /** Gerade Reihe oder Spalte -> ein Schuss in die richtige Richtung würde treffen. */
+    /**
+     * Prüft, ob [from] und [to] in derselben Reihe oder Spalte liegen - also ein
+     * Schuss in die richtige Richtung treffen würde.
+     */
     private fun isAligned(from: Position, to: Position): Boolean =
         from.x == to.x || from.y == to.y
 
+    /** Distanz auf dem Grid ohne Diagonalbewegung: Summe der Achsenabstände. */
     private fun manhattanDistance(a: Position, b: Position): Int =
         abs(a.x - b.x) + abs(a.y - b.y)
 
+    /**
+     * Leitet aus der relativen Lage von [to] zu [from] die Schussrichtung ab.
+     * Voraussetzung: [isAligned] für dasselbe Paar ist bereits `true`.
+     */
     private fun directionTo(from: Position, to: Position): Direction {
         return when {
             from.x == to.x -> if (to.y < from.y) Direction.NORTH else Direction.SOUTH
@@ -77,6 +93,10 @@ class PowerBot(override val name: String = "PowerBot") : RobotBrain {
      * Ziel), erst danach die y-Differenz. Diese "Spalte zuerst"-Reihenfolge hat
      * sich in Testläufen gegen alle anderen Beispiel-Bots als die stärkste
      * Ausricht-Strategie erwiesen.
+     *
+     * @param self eigene Position.
+     * @param target Zielposition, der angenähert werden soll.
+     * @return [Action.Move] Richtung x-Angleichung, oder falls `dx == 0`, y-Angleichung.
      */
     private fun moveTowardAlignment(self: Position, target: Position): Action {
         val dx = target.x - self.x

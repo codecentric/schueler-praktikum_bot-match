@@ -12,6 +12,12 @@ import kotlin.random.Random
  * Dient als Baseline-Gegner zum Testen anderer Bots.
  */
 class RandomBot(override val name: String = "RandomBot") : RobotBrain {
+    /**
+     * Ignoriert [sensors] komplett - reiner Münzwurf.
+     *
+     * @param sensors aktueller Wahrnehmungszustand (hier ungenutzt).
+     * @return zufällig [Action.Move] oder [Action.Shoot], jeweils mit zufälliger [Direction].
+     */
     override fun decide(sensors: Sensors): Action {
         val direction = Direction.entries.random()
         return if (Random.nextBoolean()) {

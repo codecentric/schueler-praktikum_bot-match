@@ -15,6 +15,12 @@ class StillstandBot(
     override val name: String = "StillstandBot",
     private val shootDirection: Direction = Direction.EAST
 ) : RobotBrain {
+    /**
+     * Liefert bei jedem Aufruf dieselbe Aktion, unabhängig vom Tick oder von [sensors].
+     *
+     * @param sensors aktueller Wahrnehmungszustand (hier ungenutzt).
+     * @return [Action.Shoot] in [shootDirection].
+     */
     override fun decide(sensors: Sensors): Action {
         return Action.Shoot(shootDirection)
     }
