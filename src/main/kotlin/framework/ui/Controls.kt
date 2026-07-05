@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Button
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Checkbox
 import androidx.compose.material.Slider
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import framework.arena.RobotBrain
 
@@ -32,6 +34,7 @@ fun Controls(
     tickIntervalMs: Int,
     onTickIntervalMsChange: (Int) -> Unit,
     onReset: () -> Unit,
+    onCopyLog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val canStart = selectedBrainIndices.size >= 2
@@ -53,6 +56,13 @@ fun Controls(
             Button(onClick = onReset) {
                 Text("Reset")
             }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = onCopyLog,
+                colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFADD8E6))
+            ) {
+                Text("Protokoll")
+            }
         }
 
         if (!canStart) {
@@ -67,21 +77,28 @@ fun Controls(
         )
 
         Text("Teilnehmer:", style = androidx.compose.material.MaterialTheme.typography.subtitle1)
-        availableBrains.forEachIndexed { index, brain ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = index in selectedBrainIndices,
-                    onCheckedChange = { checked ->
-                        val newSelection = if (checked) {
-                            selectedBrainIndices + index
-                        } else {
-                            selectedBrainIndices - index
-                        }
-                        onSelectedBrainIndicesChange(newSelection)
-                    },
-                    enabled = !isRunning
-                )
-                Text(brain.name)
+        availableBrains.withIndex().chunked(2).forEach { pair ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                pair.forEach { (index, brain) ->
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = index in selectedBrainIndices,
+                            onCheckedChange = { checked ->
+                                val newSelection = if (checked) {
+                                    selectedBrainIndices + index
+                                } else {
+                                    selectedBrainIndices - index
+                                }
+                                onSelectedBrainIndicesChange(newSelection)
+                            },
+                            enabled = !isRunning
+                        )
+                        Text(brain.name)
+                    }
+                }
             }
         }
     }

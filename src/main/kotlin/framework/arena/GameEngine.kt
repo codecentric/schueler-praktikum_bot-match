@@ -229,12 +229,25 @@ class GameEngine(
             robot.id to botExecutor.decideSafely(brain, sensors, robot.id, onLog)
         }
 
+        if (aliveSnapshot.isNotEmpty()) onLog("--- Tick $tick ---")
+
         val moveRequests = actions.mapNotNull { (id, action) ->
             if (action is Action.Move) {
                 MoveRequest(id, states.getValue(id).position.moved(action.direction))
             } else null
         }
         val positionsAfterMove = resolveMoves(aliveSnapshot, moveRequests, arenaWidth, arenaHeight)
+
+        for (robot in aliveSnapshot) {
+            val action = actions.getValue(robot.id)
+            val position = positionsAfterMove.getValue(robot.id)
+            val description = when (action) {
+                is Action.Move -> "bewegt sich nach ${action.direction} (${position.x},${position.y})"
+                is Action.Shoot -> "schießt nach ${action.direction} (${position.x},${position.y})"
+                is Action.Wait -> "wartet (${position.x},${position.y})"
+            }
+            onLog("${robot.teamName} $description")
+        }
 
         val shotRequests = actions.mapNotNull { (id, action) ->
             if (action is Action.Shoot) ShotRequest(id, action.direction) else null
@@ -255,7 +268,7 @@ class GameEngine(
             val newHealth = (robot.health - damage).coerceAtLeast(0)
             states[robot.id] = robot.copy(position = newPosition, health = newHealth)
             if (damage > 0) {
-                onLog("${robot.teamName} (${robot.id}) erhält $damage Schaden -> $newHealth HP")
+                onLog("${robot.teamName} erhält $damage Schaden -> $newHealth HP")
             }
         }
 

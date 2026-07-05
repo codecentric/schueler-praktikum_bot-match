@@ -3,9 +3,12 @@ package framework.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +20,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import framework.arena.Action
 import framework.arena.Direction
@@ -93,6 +98,7 @@ fun App(availableBrains: List<RobotBrain>) {
     val brains = remember(availableBrains) {
         if (availableBrains.size < 2) fallbackTestBrains() else availableBrains
     }
+    val clipboardManager = LocalClipboardManager.current
 
     var selectedBrainIndices by remember { mutableStateOf(brains.indices.toSet()) }
     var tickIntervalMs by remember { mutableStateOf(300) }
@@ -106,6 +112,7 @@ fun App(availableBrains: List<RobotBrain>) {
     var robots by remember(matchGeneration) { mutableStateOf<List<RobotState>>(emptyList()) }
     var shots by remember(matchGeneration) { mutableStateOf<List<ShotEvent>>(emptyList()) }
     var logEntries by remember(matchGeneration) { mutableStateOf<List<String>>(emptyList()) }
+    var winnerId by remember(matchGeneration) { mutableStateOf<String?>(null) }
 
     // Startet das Match einmalig für jede Engine-Generation mit den aktuell
     // ausgewählten Brains.
@@ -139,8 +146,9 @@ fun App(availableBrains: List<RobotBrain>) {
                     result == null -> "Match beendet."
                     result.isDraw -> "Match beendet nach ${result.ticksPlayed} Ticks: Unentschieden."
                     else -> {
-                        val winner = result.finalStates.find { it.id == result.winnerId }
-                        "Match beendet nach ${result.ticksPlayed} Ticks: ${winner?.teamName ?: result.winnerId} gewinnt!"
+                        val winnerState = result.finalStates.find { it.id == result.winnerId }
+                        winnerId = result.winnerId
+                        "Match beendet nach ${result.ticksPlayed} Ticks: ${winnerState?.teamName ?: result.winnerId} gewinnt!"
                     }
                 }
                 logEntries = (logEntries + summary).takeLast(500)
@@ -160,11 +168,18 @@ fun App(availableBrains: List<RobotBrain>) {
             arenaWidth = 10,
             arenaHeight = 10,
             shots = shots,
-            modifier = Modifier.weight(1f)
+            winnerId = winnerId,
+            // fillMaxHeight().aspectRatio(1f) statt weight(1f): das Quadrat bekommt so
+            // exakt seine eigene Breite (an der Höhe orientiert) statt eines vollen
+            // weight-Slots, dessen leerer Rest sonst als große Lücke vor der
+            // Steuerungsspalte sichtbar wäre.
+            modifier = Modifier.fillMaxHeight().aspectRatio(1f)
         )
 
+        Spacer(modifier = Modifier.width(48.dp))
+
         Column(
-            modifier = Modifier.width(360.dp).padding(start = 8.dp),
+            modifier = Modifier.width(360.dp).fillMaxHeight().padding(end = 16.dp),
             verticalArrangement = Arrangement.Top
         ) {
             Column(
@@ -181,16 +196,18 @@ fun App(availableBrains: List<RobotBrain>) {
                     onReset = {
                         isRunning = false
                         matchGeneration++
-                    }
+                    },
+                    onCopyLog = { clipboardManager.setText(AnnotatedString(logEntries.joinToString("\n"))) }
                 )
                 Scoreboard(
                     robots = robots,
+                    winnerId = winnerId,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
             }
             LogPanel(
                 logEntries = logEntries,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).padding(top = 12.dp)
             )
         }
     }

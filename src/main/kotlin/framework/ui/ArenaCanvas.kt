@@ -1,9 +1,16 @@
 package framework.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -54,7 +61,7 @@ private fun colorForTeam(teamName: String): Color {
 /**
  * Zeichnet das Arena-Raster inklusive aller Roboter.
  * Lebende Roboter: farbiger Kreis (Farbe nach Team) mit Healthbar darüber.
- * Tote Roboter: ausgegrauter Kreis mit X-Markierung, keine Healthbar.
+ * Tote Roboter: transparenter Kreis in Teamfarbe mit X-Markierung, keine Healthbar.
  */
 @Composable
 fun ArenaCanvas(
@@ -62,9 +69,23 @@ fun ArenaCanvas(
     arenaWidth: Int,
     arenaHeight: Int,
     shots: List<ShotEvent> = emptyList(),
+    winnerId: String? = null,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
+
+    // Feuerwerk über dem Gewinner: durchläuft endlos 0..1, jeder Umlauf ist eine
+    // neue "Salve" von Funken, die vom Zentrum nach außen fliegen und verblassen.
+    val fireworkTransition = rememberInfiniteTransition(label = "firework")
+    val fireworkProgress by fireworkTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "fireworkProgress"
+    )
 
     // BoxWithConstraints statt aspectRatio(): aspectRatio erzwingt ein Quadrat nach
     // der Breite und läuft über den verfügbaren Platz hinaus, sobald die Breite größer
@@ -127,72 +148,97 @@ fun ArenaCanvas(
             )
         }
 
-        for (robot in robots) {
+        // Tote Bots zuerst zeichnen, damit sie bei Feldüberlappung unter lebenden Bots liegen.
+        val (deadRobots, aliveRobots) = robots.partition { !it.alive }
+
+        // Tote Bots blockieren keine Felder (siehe GameEngine) und können sich daher
+        // stapeln. Pro belegter Zelle wird deshalb nur EIN Label mit allen Kürzeln
+        // kommagetrennt gezeichnet, statt mehrerer exakt übereinanderliegender Labels.
+        for ((position, botsHere) in deadRobots.groupBy { it.position }) {
+            val centerX = (position.x + 0.5f) * cellWidth
+            val centerY = (position.y + 0.5f) * cellHeight
+            val center = Offset(centerX, centerY)
+
+            for (robot in botsHere) {
+                val color = colorForTeam(robot.teamName).copy(alpha = 0.18f)
+                drawCircle(color = color, radius = radius, center = center)
+            }
+
+            val xExtent = radius * 0.6f
+            val xStroke = Stroke(width = radius * 0.25f, cap = StrokeCap.Round)
+            drawLine(
+                color = Color.Black,
+                start = Offset(centerX - xExtent, centerY - xExtent),
+                end = Offset(centerX + xExtent, centerY + xExtent),
+                strokeWidth = xStroke.width,
+                cap = xStroke.cap
+            )
+            drawLine(
+                color = Color.Black,
+                start = Offset(centerX - xExtent, centerY + xExtent),
+                end = Offset(centerX + xExtent, centerY - xExtent),
+                strokeWidth = xStroke.width,
+                cap = xStroke.cap
+            )
+
+            val combinedLabel = botsHere.joinToString(",") { labelFor(it.teamName) }
+            val nameTextLayout = textMeasurer.measure(
+                combinedLabel,
+                style = TextStyle(color = Color.White.copy(alpha = 0.7f), fontSize = (radius * 0.6f).toSp(), fontWeight = FontWeight.Bold)
+            )
+            // Über dem Bot wie bei lebenden Bots das Healthbar, aber nach unten geclampt,
+            // damit das Label in Reihe 0 nicht über den oberen Canvas-Rand hinausragt.
+            val labelTop = (centerY - radius - nameTextLayout.size.height - 3f).coerceAtLeast(0f)
+            drawText(
+                textLayoutResult = nameTextLayout,
+                topLeft = Offset(centerX - nameTextLayout.size.width / 2f, labelTop)
+            )
+        }
+
+        for (robot in aliveRobots) {
             val centerX = (robot.position.x + 0.5f) * cellWidth
             val centerY = (robot.position.y + 0.5f) * cellHeight
             val center = Offset(centerX, centerY)
 
-            if (robot.alive) {
-                val color = colorForTeam(robot.teamName)
-                drawCircle(color = color, radius = radius, center = center)
+            val color = colorForTeam(robot.teamName)
+            drawCircle(color = color, radius = radius, center = center)
 
-                val label = labelFor(robot.teamName)
-                val textLayout = textMeasurer.measure(
-                    label,
-                    style = TextStyle(color = Color.White, fontSize = (radius * 0.9f).toSp(), fontWeight = FontWeight.Bold)
-                )
-                drawText(
-                    textLayoutResult = textLayout,
-                    topLeft = Offset(centerX - textLayout.size.width / 2f, centerY - textLayout.size.height / 2f)
-                )
+            val label = labelFor(robot.teamName)
+            val textLayout = textMeasurer.measure(
+                label,
+                style = TextStyle(color = Color.White, fontSize = (radius * 0.9f).toSp(), fontWeight = FontWeight.Bold)
+            )
+            drawText(
+                textLayoutResult = textLayout,
+                topLeft = Offset(centerX - textLayout.size.width / 2f, centerY - textLayout.size.height / 2f)
+            )
 
-                // Healthbar direkt über dem Roboter: grün -> rot je nach HP-Anteil.
-                val healthFraction = (robot.health / 100f).coerceIn(0f, 1f)
-                val barWidth = cellWidth * 0.7f
-                val barHeight = cellHeight * 0.1f
-                val barLeft = centerX - barWidth / 2f
-                val barTop = centerY - radius - barHeight - 3f
+            // Healthbar direkt über dem Roboter: grün -> rot je nach HP-Anteil.
+            val healthFraction = (robot.health / 100f).coerceIn(0f, 1f)
+            val barWidth = cellWidth * 0.7f
+            val barHeight = cellHeight * 0.1f
+            val barLeft = centerX - barWidth / 2f
+            val barTop = centerY - radius - barHeight - 3f
 
-                // Hintergrund (dunkles Rot = "leer")
-                drawRect(
-                    color = Color(0xFF7A1414),
-                    topLeft = Offset(barLeft, barTop),
-                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
-                )
-                // Vordergrund (grün = aktuelle HP)
-                drawRect(
-                    color = Color(0xFF2E7D32),
-                    topLeft = Offset(barLeft, barTop),
-                    size = androidx.compose.ui.geometry.Size(barWidth * healthFraction, barHeight)
-                )
-                // Dünner dunkler Rahmen um die gesamte Leiste für einen klaren Abschluss.
-                drawRect(
-                    color = Color.Black,
-                    topLeft = Offset(barLeft, barTop),
-                    size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
-                    style = Stroke(width = 1f)
-                )
-            } else {
-                // Toter Roboter: grauer, ausgegrauter Kreis mit X-Symbol.
-                val grayColor = Color(0xFF9E9E9E)
-                drawCircle(color = grayColor, radius = radius, center = center)
-                val xExtent = radius * 0.6f
-                val stroke = Stroke(width = radius * 0.25f, cap = StrokeCap.Round)
-                drawLine(
-                    color = Color.DarkGray,
-                    start = Offset(centerX - xExtent, centerY - xExtent),
-                    end = Offset(centerX + xExtent, centerY + xExtent),
-                    strokeWidth = stroke.width,
-                    cap = stroke.cap
-                )
-                drawLine(
-                    color = Color.DarkGray,
-                    start = Offset(centerX - xExtent, centerY + xExtent),
-                    end = Offset(centerX + xExtent, centerY - xExtent),
-                    strokeWidth = stroke.width,
-                    cap = stroke.cap
-                )
-            }
+            // Hintergrund (dunkles Rot = "leer")
+            drawRect(
+                color = Color(0xFF7A1414),
+                topLeft = Offset(barLeft, barTop),
+                size = androidx.compose.ui.geometry.Size(barWidth, barHeight)
+            )
+            // Vordergrund (grün = aktuelle HP)
+            drawRect(
+                color = Color(0xFF2E7D32),
+                topLeft = Offset(barLeft, barTop),
+                size = androidx.compose.ui.geometry.Size(barWidth * healthFraction, barHeight)
+            )
+            // Dünner dunkler Rahmen um die gesamte Leiste für einen klaren Abschluss.
+            drawRect(
+                color = Color.Black,
+                topLeft = Offset(barLeft, barTop),
+                size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                style = Stroke(width = 1f)
+            )
         }
 
         // Explosion NACH den Bots gezeichnet, damit sie über dem getroffenen Bot
@@ -212,6 +258,31 @@ fun ArenaCanvas(
                     start = Offset(centerX + explosionInnerRadius * cos, centerY + explosionInnerRadius * sin),
                     end = Offset(centerX + explosionOuterRadius * cos, centerY + explosionOuterRadius * sin),
                     strokeWidth = shotStrokeWidth * 1.5f,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
+        // Feuerwerk über dem Gewinner-Bot: mehrere Farben, Funken fliegen mit
+        // fireworkProgress nach außen und verblassen dabei (alpha sinkt mit dem Radius).
+        val winner = robots.find { it.id == winnerId }
+        if (winner != null) {
+            val centerX = (winner.position.x + 0.5f) * cellWidth
+            val centerY = (winner.position.y + 0.5f) * cellHeight - radius * 1.8f
+            val fireworkColors = listOf(Color(0xFFFFD54F), Color(0xFFFF5252), Color(0xFF69F0AE), Color(0xFF40C4FF))
+            val sparkCount = 12
+            val maxSparkRadius = radius * 2.2f
+            val sparkRadius = fireworkProgress * maxSparkRadius
+            val alpha = (1f - fireworkProgress).coerceIn(0f, 1f)
+            for (i in 0 until sparkCount) {
+                val angle = 2 * Math.PI * i / sparkCount
+                val cos = kotlin.math.cos(angle).toFloat()
+                val sin = kotlin.math.sin(angle).toFloat()
+                drawLine(
+                    color = fireworkColors[i % fireworkColors.size].copy(alpha = alpha),
+                    start = Offset(centerX + sparkRadius * 0.5f * cos, centerY + sparkRadius * 0.5f * sin),
+                    end = Offset(centerX + sparkRadius * cos, centerY + sparkRadius * sin),
+                    strokeWidth = shotStrokeWidth,
                     cap = StrokeCap.Round
                 )
             }

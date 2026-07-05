@@ -9,6 +9,7 @@ import androidx.compose.material.Divider
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import framework.arena.RobotState
@@ -22,7 +23,7 @@ import framework.arena.RobotState
  * Höhe beanspruchen und dem darunterliegenden LogPanel (weight(1f)) den Platz wegnehmen.
  */
 @Composable
-fun Scoreboard(robots: List<RobotState>, modifier: Modifier = Modifier) {
+fun Scoreboard(robots: List<RobotState>, winnerId: String? = null, modifier: Modifier = Modifier) {
     val sorted = robots.sortedWith(compareByDescending<RobotState> { it.alive }.thenByDescending { it.health })
 
     Column(modifier = modifier) {
@@ -34,13 +35,16 @@ fun Scoreboard(robots: List<RobotState>, modifier: Modifier = Modifier) {
         }
         Divider()
         for (robot in sorted) {
+            val isWinner = robot.id == winnerId
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                 horizontalArrangement = Arrangement.Start
             ) {
-                Text("${robot.teamName} (${robot.id})", modifier = Modifier.weight(2f))
-                Text("${robot.health}", modifier = Modifier.weight(1f))
-                Text(if (robot.alive) "Lebt" else "Zerstört", modifier = Modifier.weight(1.5f))
+                val color = if (isWinner) Color.Red else Color.Unspecified
+                val weight = if (isWinner) FontWeight.Bold else FontWeight.Normal
+                Text("${robot.teamName} (${robot.id})", modifier = Modifier.weight(2f), color = color, fontWeight = weight)
+                Text("${robot.health}", modifier = Modifier.weight(1f), color = color, fontWeight = weight)
+                Text(if (robot.alive) "Lebt" else "Zerstört", modifier = Modifier.weight(1.5f), color = color, fontWeight = weight)
             }
         }
     }

@@ -11,7 +11,10 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "Bot-Match",
-        state = WindowState(width = 1400.dp, height = 900.dp)
+        // Breite so gewählt, dass bei Fensterhöhe 900dp die Steuerungsspalte (fix 360dp
+        // + Abstand 48dp) neben dem quadratischen Arena-Canvas (Seitenlänge = verfügbare
+        // Höhe) noch vollständig sichtbar ist - sonst wird die Spalte rechts abgeschnitten.
+        state = WindowState(width = 1320.dp, height = 900.dp)
     ) {
         App(availableBrains = BotRegistry.allBots())
     }
