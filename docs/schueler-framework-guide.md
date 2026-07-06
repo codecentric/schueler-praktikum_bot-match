@@ -251,3 +251,7 @@ ihr den Fehler behoben und neu gestartet habt.
 
 Das Backlog in [`docs/backlog.md`](backlog.md) enthält alle Aufgaben (User Storys)
 mit genauen Anforderungen, sortiert nach Schwierigkeit. Fangt mit Epic 1 an.
+
+Wenn ihr bei einer Story nicht weiterkommt: in [`docs/story-hinweise.md`](story-hinweise.md)
+gibt es zu jeder Story Denkhilfen, Taktik-Gedanken und Leitfragen (mit Bildern) —
+ohne die Lösung zu verraten.

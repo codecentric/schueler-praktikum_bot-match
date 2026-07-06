@@ -2,7 +2,9 @@
 
 Gemeinsames Backlog für alle drei Teams. Jede Story hat Akzeptanzkriterien und Story Points (Planning-Poker-Skala 1/2/3/5 — 1 = trivial, 5 = anspruchsvoll für diese Gruppe). Reihenfolge der Epics ist eine Empfehlung, keine Pflicht-Sortierung.
 
-Für jede Story gibt es eine Musterlösung für den Dozenten in [`dozent/loesungen.md`](dozent/loesungen.md) — bitte nicht an Schüler weitergeben, bevor sie es selbst versucht haben.
+Für jede Story gibt es eine Musterlösung für den Dozenten in [`dozent/loesungen.md`](dozent/loesungen.md) (kompakt) bzw. [`dozent/loesungen_easy.md`](dozent/loesungen_easy.md) (geradlinig/anfängernah) — bitte nicht an Schüler weitergeben, bevor sie es selbst versucht haben.
+
+**Für Schüler:** Denkhilfen, Taktik-Gedanken und Leitfragen zu jeder Story (mit Bildern) stehen in [`story-hinweise.md`](story-hinweise.md). Dort nachschauen, wenn ihr an einer Story hängt.
 
 Referenz-API (siehe auch `framework/arena/Models.kt`):
 ```kotlin
