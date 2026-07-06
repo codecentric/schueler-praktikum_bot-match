@@ -121,8 +121,12 @@ Sonst → nach EAST." Wer mag, macht dasselbe zusätzlich für oben/unten.
 ### Story 1.3 — Flucht bei niedriger Gesundheit  ·  3 Punkte
 
 **Ziel:** Sinkt `health` unter 20, läuft der Bot **weg** vom nächsten Gegner.
+Sonst verhält er sich normal (z.B. wie in Epic 2, oder erst mal Zufallslauf).
 
-**Das ist der erste "wenn ... dann anders"-Bot.** Ihr baut eine Weiche:
+**Das ist der erste "wenn ... dann anders"-Bot.** Bisher hat euer Bot immer
+dasselbe gemacht. Jetzt baut ihr eine **Weiche**: je nach Situation zwei ganz
+verschiedene Verhalten. Genau dieses Muster braucht ihr später in Story 3.1
+(Zustandsmaschine) wieder — nur mit mehr Zuständen.
 
 ```
           health < 20 ?
@@ -133,26 +137,135 @@ Sonst → nach EAST." Wer mag, macht dasselbe zusätzlich für oben/unten.
   (weg vom Gegner)  (z.B. Zufall / Angriff)
 ```
 
-**Leitfragen:**
-- Wie finde ich den nächsten Gegner? → `sensors.others.minByOrNull { ... abstand ... }`
-- Was, wenn gar kein Gegner mehr da ist? → `minByOrNull` gibt `null`; mit
-  `?: return Action.Wait` abfangen (sonst Absturz!).
-- In welche Richtung ist "weg"? → `dx`/`dy` ausrechnen und in die Richtung mit
-  dem **umgekehrten** Vorzeichen laufen.
+Das Akzeptanzkriterium verlangt drei Dinge — hakt sie einzeln ab:
+1. `health < 20` → weg vom **nächsten** Gegner bewegen.
+2. `health >= 20` → normales Verhalten (irgendwas Sinnvolles, kein Absturz).
+3. **kein** Gegner mehr da → keine Exception, sondern `Action.Wait`.
 
-**Der Kern-Trick der Flucht:** Ihr könnt pro Tick nur **eine** Richtung laufen,
-nicht diagonal. Also: schaut, wo der größere Abstand ist (`abs(dx)` vs `abs(dy)`)
-und flieht zuerst auf dieser Achse.
+---
+
+#### Schritt 1 — nächsten Gegner finden (und den Leer-Fall abfangen)
+
+Fliehen könnt ihr nur **vor** jemandem. Also zuerst: wer ist der nächste Gegner?
+Der Leer-Fall ist keine Kür, sondern Pflicht (Kriterium 3) — ohne ihn stürzt der
+Bot ab, sobald der letzte Gegner tot ist und `sensors.others` leer wird.
+
+```kotlin
+import kotlin.math.abs
+
+val self = sensors.self.position
+
+// Kein Gegner mehr da? Dann sofort raus, nicht weiterrechnen.
+if (sensors.others.isEmpty()) {
+    return Action.Wait
+}
+
+// Nächsten Gegner mit einer Schleife suchen (den mit dem kleinsten Abstand)
+var naechster = sensors.others[0]
+var kleinsterAbstand = abs(naechster.position.x - self.x) + abs(naechster.position.y - self.y)
+for (gegner in sensors.others) {
+    val abstand = abs(gegner.position.x - self.x) + abs(gegner.position.y - self.y)
+    if (abstand < kleinsterAbstand) {
+        kleinsterAbstand = abstand
+        naechster = gegner
+    }
+}
+```
+
+So funktioniert die Schleife: Wir merken uns anfangs den **ersten** Gegner als
+"nächsten". Dann gehen wir alle Gegner durch und rechnen für jeden den Abstand
+aus. Ist einer näher als der bisher gemerkte, wird er zum neuen `naechster`. Am
+Ende steht in `naechster` der Gegner mit dem kleinsten Abstand.
+
+Wichtig: die `isEmpty()`-Prüfung **vorher**, sonst knallt `sensors.others[0]` bei
+leerer Liste.
+
+---
+
+#### Schritt 2 — "wo steht der Gegner relativ zu mir?" (dx / dy)
+
+```kotlin
+val dx = naechster.position.x - self.x   // + = Gegner rechts von mir, - = links
+val dy = naechster.position.y - self.y   // + = Gegner unter mir,   - = über mir
+```
+
+Beispiel: ich stehe bei `(3,7)`, Gegner bei `(7,8)`.
+`dx = 7 - 3 = 4` (Gegner ist 4 nach rechts), `dy = 8 - 7 = 1` (1 nach unten).
+
+---
+
+#### Schritt 3 — nur **eine** Achse pro Tick (die mit dem größeren Abstand)
+
+`Action.Move` erlaubt pro Tick **nur eine** Richtung — nicht diagonal. Ihr müsst
+euch also entscheiden: erst nach links/rechts fliehen oder erst nach oben/unten?
+
+Faustregel: **flieht zuerst auf der Achse, wo der Gegner weiter weg ist.** Warum?
+Dort bringt ein Schritt den größten Sicherheitsabstand. Vergleicht `abs(dx)` mit
+`abs(dy)`:
 
 ```
-Gegner G, ich ●. dx = 4 (Gegner weit rechts), dy = 1 (kaum drüber).
-→ abs(dx) > abs(dy) → auf der x-Achse fliehen → nach WEST.
+Gegner weit rechts, kaum drüber:  dx = 4, dy = 1
+abs(dx)=4  >  abs(dy)=1   →  auf der x-Achse fliehen
 
-●  ·  ·  ·  G      Nächster Tick wieder neu rechnen.
+●  ·  ·  ·  G      Gegner rechts → ich fliehe nach links (WEST)
+←●
 ```
 
-**Häufiger Fehler:** Vorzeichen verdreht → Bot rennt beim Fliehen genau **auf**
-den Gegner zu. Immer testen: HP runter, läuft er wirklich weg?
+---
+
+#### Schritt 4 — Vorzeichen umdrehen (DAS ist die Flucht)
+
+Beim **Verfolgen** (Epic 2) lauft ihr *in* Richtung `dx`/`dy`. Beim **Fliehen**
+genau **andersrum**. Merkt euch das als Spiegel:
+
+| Gegner steht … | `dx`/`dy` | **Verfolgen** (hin) | **Fliehen** (weg) |
+|---|---|---|---|
+| rechts von mir | `dx > 0` | EAST | **WEST** |
+| links von mir  | `dx < 0` | WEST | **EAST** |
+| unter mir      | `dy > 0` | SOUTH | **NORTH** |
+| über mir       | `dy < 0` | NORTH | **SOUTH** |
+
+Als Code (nur der Flucht-Zweig):
+
+```kotlin
+if (abs(dx) > abs(dy)) {
+    // x-Achse: Gegner rechts (dx>0) → ich nach WEST, sonst nach EAST
+    return Action.Move(if (dx > 0) Direction.WEST else Direction.EAST)
+} else {
+    // y-Achse: Gegner unten (dy>0) → ich nach NORTH, sonst nach SOUTH
+    return Action.Move(if (dy > 0) Direction.NORTH else Direction.SOUTH)
+}
+```
+
+> Denkt an die Karte: `y` wächst nach **unten**. "Nach oben fliehen" heißt NORTH
+> und macht `y` **kleiner**. Wer hier `y` mit "unten = kleiner" verwechselt,
+> baut genau den Vorzeichenfehler ein.
+
+---
+
+#### Schritt 5 — der `else`-Zweig (genug HP)
+
+Kriterium 2: Bei `health >= 20` soll der Bot **normal** weitermachen. Was "normal"
+ist, hängt davon ab, wie weit ihr seid:
+
+- Habt ihr Epic 2 noch nicht: einfach `Action.Move(Direction.entries.random())`
+  oder auf den Gegner **zu** laufen (Flucht-Code mit **nicht** getauschtem
+  Vorzeichen).
+- Habt ihr Epic 2 schon: hier eure Angriffs-Logik (schießen / verfolgen)
+  einsetzen.
+
+---
+
+**Häufige Fehler bei genau dieser Story:**
+- **Vorzeichen verdreht** → Bot rennt beim Fliehen genau **auf** den Gegner zu.
+  Der wichtigste Test: HP künstlich runter (z.B. gegen mehrere Bots), zuschauen —
+  läuft er wirklich **weg**?
+- **`?:`-Fallback vergessen** → Absturz, sobald der letzte Gegner stirbt. Der Bot
+  wird dann von der Engine "eingefroren".
+- **Beide Achsen gleichzeitig bewegen wollen** → geht nicht, `Move` ist eine
+  einzige Richtung. Immer nur eine Achse pro Tick.
+- **`health <= 20` statt `< 20`** → Grenzfall; die Story sagt "unter 20", also
+  `< 20`. Kleinigkeit, aber im Review erwähnen.
 
 ---
 
@@ -196,8 +309,11 @@ derselben **Zeile** (gleiches `y`) steht:
 ```
 
 **Leitfragen:**
-- Wie filtere ich auf treffbare Gegner? → `sensors.others.filter { es.position.x == self.x || es.position.y == self.y }`
-- Wenn mehrere treffbar sind: welchen nehme ich? → den nächsten (`minByOrNull { abstand }`).
+- Wie prüfe ich, ob ein Gegner treffbar ist? → für jeden Gegner testen:
+  `gegner.position.x == meinX || gegner.position.y == meinY`.
+- Wie finde ich den nächsten davon? → alle Gegner mit einer `for`-Schleife
+  durchgehen, treffbare merken, den mit dem kleinsten Abstand behalten
+  (wie in Story 1.3, nur zusätzlich mit der "in Linie?"-Prüfung).
 - Wie leite ich aus der Position die Schussrichtung ab? → gleiches `x` und Gegner
   hat kleineres `y` → NORTH; größeres `y` → SOUTH; gleiches `y` und größeres `x`
   → EAST; sonst WEST.
@@ -279,24 +395,45 @@ reagiert immer auf die aktuelle Lage.
 **Ziel:** Bei mehreren Gegnern nicht wahllos den erstbesten angreifen, sondern
 nach einer klaren Regel auswählen.
 
-**Der ganze Trick ist ein Zeichen-Tausch.** Bisher habt ihr immer den *nächsten*
-Gegner gesucht:
+**Der ganze Trick ist ein getauschtes Vergleichs-Kriterium.** Bisher habt ihr in
+der Such-Schleife immer den *nächsten* Gegner gesucht (kleinster Abstand):
 
 ```kotlin
-val ziel = sensors.others.minByOrNull { abstand(...) }     // nächster
+// nächster Gegner (wie in 1.3 / 2.3)
+var ziel = sensors.others[0]
+var bester = abs(ziel.position.x - meinX) + abs(ziel.position.y - meinY)
+for (gegner in sensors.others) {
+    val abstand = abs(gegner.position.x - meinX) + abs(gegner.position.y - meinY)
+    if (abstand < bester) {
+        bester = abstand
+        ziel = gegner
+    }
+}
 ```
 
-Jetzt tauscht ihr nur das Kriterium in den `{ }`:
+Jetzt vergleicht ihr in derselben Schleife einfach ein **anderes Merkmal** —
+z.B. die HP statt den Abstand:
 
 ```kotlin
-val ziel = sensors.others.minByOrNull { it.health }        // schwächster
+// schwächster Gegner (wenigste HP)
+var ziel = sensors.others[0]
+var wenigsteHp = ziel.health
+for (gegner in sensors.others) {
+    if (gegner.health < wenigsteHp) {
+        wenigsteHp = gegner.health
+        ziel = gegner
+    }
+}
 ```
+
+Gleiche Schleifen-Struktur, nur `< bester` wird zu `< wenigsteHp`. Das ist der
+ganze Lernpunkt der Story.
 
 **Leitfragen:**
 - Welche Regel wollt ihr? Mögliche Kriterien:
-  - **schwächster zuerst** (`it.health`) — schaltet ihr am schnellsten aus einem
-    Kampf aus.
-  - **nächster zuerst** (`abstand`) — am leichtesten zu erreichen/treffen.
+  - **schwächster zuerst** (`gegner.health`) — schaltet ihr am schnellsten aus
+    einem Kampf aus.
+  - **nächster zuerst** (Abstand) — am leichtesten zu erreichen/treffen.
 - Egal welches — schreibt als Kommentar dazu, **warum** ihr es gewählt habt.
 - Der Rest (schießen/hinlaufen) bleibt exakt wie in Epic 2, nur mit `ziel` statt
   `nächster`.
@@ -383,8 +520,9 @@ vielleicht noch zu unübersichtlich ist — gute Gelegenheit zum Aufräumen.
 
 1. **Läuft der Bot überhaupt?** Zurück zu Story 1.1 — taucht er in der Auswahl
    auf, bewegt er sich?
-2. **Absturz?** Meist `sensors.others` leer und trotzdem `.first()` benutzt.
-   Immer `firstOrNull()` / `minByOrNull()` + `?:`-Fallback.
+2. **Absturz?** Meist `sensors.others` leer und trotzdem `sensors.others[0]`
+   oder `.first()` benutzt. Immer **vorher** mit `if (sensors.others.isEmpty())
+   return Action.Wait` abfangen.
 3. **Läuft/schießt falsch herum?** Vorzeichen von `dx`/`dy` prüfen und dran
    denken: `y` wächst nach **unten**.
 4. **Schießt nie?** Steht ein Gegner wirklich in gleicher Zeile/Spalte? Testet
