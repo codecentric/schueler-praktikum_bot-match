@@ -15,7 +15,7 @@ object BotRegistry {
     val allTeams: Map<String, List<RobotBrain>> = mapOf(
         "Team A" to bots.teama.teamABots,
         "Team B" to bots.teamb.teamBBots,
-        "Team C" to bots.teamc.teamCBots
+        "Team C" to bots.teamc.teamCBots,
     )
 
     fun allBots(): List<RobotBrain> = allTeams.values.flatten()
