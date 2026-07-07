@@ -33,16 +33,25 @@ class MeinBot(override val name: String = "Team A - SkibidiTerminator") : RobotB
 
             }
         }
+        if (sensors.others.size > 1){
+            val gegner1 = sensors.others[1]
+            if (gegner1.position.x == MeinX  gegner.position.x == MeinX) {}
+        }
+
+
         var wenigsteHp = ziel.health
         for (gegner in sensors.others) {
             if (gegner.health < wenigsteHp){
                 wenigsteHp = gegner.health
                 ziel = gegner
             }
+
         }
+
         val x = sensors.self.position.x
         val y = sensors.self.position.y
         println(gegner)
+
         if (gegner.position.x == sensors.self.position.x){
             if (gegner.position.y > sensors.self.position.y)
                 return Action.Shoot(Direction.SOUTH)
@@ -97,6 +106,7 @@ class MeinBot(override val name: String = "Team A - SkibidiTerminator") : RobotB
         return Action.Move(direction)
     }
 
+    fun
 }
 
 val teamABots: List<RobotBrain> = listOf(MeinBot())
