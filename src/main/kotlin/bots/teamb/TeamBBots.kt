@@ -1,40 +1,50 @@
 package bots.teamb
 
-// Hier entsteht euer Team-Bot. Ihr dürft diese Datei erweitern oder weitere
-// Bot-Klassen in diesem Package anlegen. Vergesst nicht, neue Bots unten in
-// `teamBBots` einzutragen, damit sie im Spiel erscheinen.
-
 import framework.arena.Action
 import framework.arena.Direction
+import framework.arena.Position
 import framework.arena.RobotBrain
+import framework.arena.RobotState
 import framework.arena.Sensors
+import kotlin.math.abs
 
-/** Startpunkt für euren eigenen Bot - benennt/erweitert diese Klasse nach Belieben. */
 class MeinBot(override val name: String = "Team B - Mr. Nonchalant") : RobotBrain {
+
     override fun decide(sensors: Sensors): Action {
-        sensors.self.position.y
-        sensors.self.position.x
-        sensors.self.position
-        if (sensors.self.position.x in 1..4 ){
-            return Action.Move(Direction.WEST)
+        val naechster = this.naechsterGegner(sensors, sensors.self.position)
+
+        val dx = naechster.position.x - sensors.self.position.x
+        val dy = naechster.position.y - sensors.self.position.y
+
+        if (sensors.self.health < 21) {
+            if (abs(dx) > abs(dy)) {
+                return Action.Move(if (dx > 0) Direction.WEST else Direction.EAST)
+            } else {
+                return Action.Move(if (dy > 0) Direction.NORTH else Direction.SOUTH)
+            }
         }
-
-        else if (sensors.self.position.y in 1..4 ){
-            return Action.Move(Direction.NORTH)
+        else if (dy == 0) {
+            return Action.Shoot(if (dx > 0) Direction.EAST else Direction.WEST)
         }
-
-        else if (sensors.self.position.x in 5..8 ){
-            return Action.Move(Direction.EAST)
+        else if (dx == 0) {
+            return Action.Shoot(if (dy > 0) Direction.SOUTH else Direction.NORTH)
         }
-
-        else if (sensors.self.position.y in 5..8 ){
-            return Action.Move(Direction.SOUTH)
+        else {
+            return Action.Move(Direction.entries.random())
         }
-        // TODO: Schieße wenn ein Gegner in Sichtlinie ist
-        // TODO: Reagiere auf niedrige eigene HP (sensors.self.health), z.B. mit Flucht
-        return Action.Move(Direction.entries.random())
+    }
 
-
+    fun naechsterGegner(sensors: Sensors, selfPosition: Position): RobotState {
+        var naechster = sensors.others[0]
+        var kleinsterAbstand = abs(naechster.position.x - selfPosition.x) + abs(naechster.position.y - selfPosition.y)
+        for (gegner in sensors.others) {
+            val abstand = abs(gegner.position.x - selfPosition.x) + abs(gegner.position.y - selfPosition.y)
+            if (abstand < kleinsterAbstand) {
+                kleinsterAbstand = abstand
+                naechster = gegner
+            }
+        }
+        return naechster
     }
 }
 
