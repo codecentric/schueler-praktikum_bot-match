@@ -4,47 +4,37 @@ import framework.arena.Action
 import framework.arena.Direction
 import framework.arena.Position
 import framework.arena.RobotBrain
-import framework.arena.RobotState
 import framework.arena.Sensors
 import kotlin.math.abs
 
 class MeinBot(override val name: String = "Team B - Mr. Nonchalant") : RobotBrain {
 
     override fun decide(sensors: Sensors): Action {
-        val naechster = this.naechsterGegner(sensors, sensors.self.position)
 
-        val dx = naechster.position.x - sensors.self.position.x
-        val dy = naechster.position.y - sensors.self.position.y
-
-        if (sensors.self.health < 21) {
-            if (abs(dx) > abs(dy)) {
-                return Action.Move(if (dx > 0) Direction.WEST else Direction.EAST)
-            } else {
-                return Action.Move(if (dy > 0) Direction.NORTH else Direction.SOUTH)
-            }
-        }
-        else if (dy == 0) {
-            return Action.Shoot(if (dx > 0) Direction.EAST else Direction.WEST)
-        }
-        else if (dx == 0) {
-            return Action.Shoot(if (dy > 0) Direction.SOUTH else Direction.NORTH)
-        }
-        else {
-            return Action.Move(Direction.entries.random())
-        }
-    }
-
-    fun naechsterGegner(sensors: Sensors, selfPosition: Position): RobotState {
-        var naechster = sensors.others[0]
-        var kleinsterAbstand = abs(naechster.position.x - selfPosition.x) + abs(naechster.position.y - selfPosition.y)
+        // Gegner-Radar
+        val self = sensors.self.position
         for (gegner in sensors.others) {
-            val abstand = abs(gegner.position.x - selfPosition.x) + abs(gegner.position.y - selfPosition.y)
-            if (abstand < kleinsterAbstand) {
-                kleinsterAbstand = abstand
-                naechster = gegner
+            val naechster = gegner.position
+            if (self.x == naechster.x && self.y == 0 && self.x == 0) {
+                return Action.Move(Direction.EAST)
             }
         }
-        return naechster
+
+        // Die neue Aufgabe von Mr Nonchalant ist es, zum Punkt Z(0 | 0) zu gehen
+        val dx = 0 - sensors.self.position.x
+        val dy = 0 - sensors.self.position.y
+
+        // Prüft, ob schon anwesend bei Z
+        if (dx == 0 && dy == 0) {
+            return Action.Shoot(Direction.SOUTH) // Wartet/Schießt, wenn angekommen
+        }
+
+        // bestimmt, wie der bot sich bewegen muss, um schnellstmöglich an den Punkt Z zu gelangen
+        if (abs(dx) >= abs(dy)) {
+            return Action.Move(if (dx > 0) Direction.EAST else Direction.WEST)
+        } else {
+            return Action.Move(if (dy > 0) Direction.SOUTH else Direction.NORTH)
+        }
     }
 }
 
