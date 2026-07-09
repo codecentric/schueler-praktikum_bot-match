@@ -32,7 +32,6 @@ import framework.arena.RobotState
 import framework.arena.Sensors
 import framework.arena.ShotEvent
 import kotlinx.coroutines.delay
-import kotlin.random.Random
 
 // ---------------------------------------------------------------------------
 // Fallback-Test-Bots: NUR zum Smoke-Testen der UI, bevor die "echten" Bots aus

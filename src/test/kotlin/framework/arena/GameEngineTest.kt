@@ -118,6 +118,7 @@ class GameEngineTest {
         val damage = resolveShots(positions, listOf(target, shooterNorth, shooterWest), shots, damage = 10)
 
         assertEquals(20, damage["target"])
+
     }
 
     // ---------- BotExecutor ----------
