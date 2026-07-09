@@ -129,11 +129,17 @@ class MeinBot(override val name: String = "Team A - SkibidiTerminator") : RobotB
         return if (ziel.x > self.x) Direction.EAST else Direction.WEST
     }
 
-    /** Bewegungsrichtung von [self] Richtung [ziel], größere Achse zuerst. */
+    /**
+     * Bewegungsrichtung von [self] Richtung [ziel]. Schließt die KLEINERE Achsen-Distanz
+     * zuerst, weil Ausrichtung (gleiche x ODER y) schon erreicht ist, sobald eine der
+     * beiden Achsen bei 0 ankommt - so entsteht Ausrichtung so früh wie möglich, und wir
+     * schießen zuerst statt zeitgleich (entscheidend bei gleich viel HP: gleichzeitiger
+     * Beschuss endet im Unentschieden, ein unbeantworteter erster Treffer gewinnt).
+     */
     fun schrittRichtungZu(self: Position, ziel: Position): Direction {
         val dx = ziel.x - self.x
         val dy = ziel.y - self.y
-        return if (abs(dx) >= abs(dy)) {
+        return if (abs(dx) <= abs(dy)) {
             if (dx > 0) Direction.EAST else Direction.WEST
         } else {
             if (dy > 0) Direction.SOUTH else Direction.NORTH
