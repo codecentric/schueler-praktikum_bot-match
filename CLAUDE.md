@@ -2,6 +2,13 @@
 
 Technischer Überblick für Claude Code (oder Entwickler), die an diesem Repo weiterarbeiten. Für den didaktischen/organisatorischen Teil siehe [`README.md`](README.md) und [`docs/`](docs/).
 
+## ⚠️ SEHR WICHTIG: Arbeitsweise für Claude Code
+
+- Wo sinnvoll Subagents nutzen, um den Hauptkontext klein zu halten (z.B. Recherche/Exploration über mehrere Dateien an einen Subagent delegieren statt selbst alles zu lesen).
+- Vor jeder nicht-trivialen Änderung erst eine Spezifikation (Plan) schreiben und dem User zur Abstimmung vorlegen. Erst nach Freigabe durch den User umsetzen.
+- Bei jeder Änderung auf Konsistenz im gesamten Repo achten, insbesondere README.md und alle `docs/*.md` — Verweise, Dateinamen und Beschreibungen müssen zur Realität passen.
+- Wenn eine `.md`-Datei unter `docs/` geändert wird, danach immer das passende PDF-Build-Skript ausführen (`docs/pdf/build/build.sh`/`build-landscape.sh` für `backlog.md`, sonst `build-docs.sh`), damit `docs/pdf/` nicht veraltet.
+
 ## Was ist das
 
 Kotlin/Compose-Desktop-App für ein 3-Tage-Schülerpraktikum (10. Klasse, Kotlin-Anfänger). Roboter kämpfen auf einem 10×10-Raster gegeneinander. Schüler implementieren ausschließlich `RobotBrain.decide()`, das Framework (Engine + UI) ist vollständig fertig und wird von Schülern nicht verändert.
