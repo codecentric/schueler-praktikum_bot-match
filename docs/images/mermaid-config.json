@@ -1,0 +1,14 @@
+{
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "linear",
+    "nodeSpacing": 40,
+    "rankSpacing": 90,
+    "subGraphTitleMargin": { "top": 15, "bottom": 20 },
+    "padding": 30,
+    "wrappingWidth": 600
+  },
+  "themeVariables": {
+    "fontSize": "44px"
+  }
+}

@@ -19,6 +19,8 @@ while IFS= read -r -d '' src; do
 
   pandoc "$TMP" \
     -o "$out" \
+    --resource-path="$(dirname "$src")" \
+    --lua-filter=docs/pdf/build/html-img.lua \
     --pdf-engine=xelatex \
     -V geometry:"a4paper,margin=2cm" \
     -V mainfont="Helvetica Neue" \

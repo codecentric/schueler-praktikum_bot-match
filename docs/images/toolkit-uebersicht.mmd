@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph Position_Funcs["Position — Distanz &amp; Ausrichtung"]
+        direction TB
+        manhattanDistanceTo["manhattanDistanceTo(other)"]
+        isAlignedWith["isAlignedWith(other)"]
+        directionTo["directionTo(other)"]
+        approachDirectionTo["approachDirectionTo(other)"]
+        fleeDirectionFrom["fleeDirectionFrom(other)"]
+    end
+
+    subgraph Arena_Funcs["Position — Arena-Geometrie"]
+        direction TB
+        isInsideArena["isInsideArena(w, h)"]
+        distanceToNearestEdge["distanceToNearestEdge(w, h)"]
+        directionToNearestEdge["directionToNearestEdge(w, h)"]
+        isNearCenter["isNearCenter(w, h, margin)"]
+    end
+
+    subgraph List_Funcs["List&lt;RobotState&gt; — Gegner-Suche"]
+        direction TB
+        nearestTo["nearestTo(position)"]
+        weakest["weakest()"]
+        strongest["strongest()"]
+        inLineWith["inLineWith(position)"]
+        named["named(name)"]
+    end
+
+    subgraph Sensors_Funcs["Sensors — Kampf &amp; Wrapper"]
+        direction TB
+        subgraph SensorsRow1[" "]
+            direction LR
+            nearestEnemy["nearestEnemy()"]
+            weakestEnemy["weakestEnemy()"]
+            strongestEnemy["strongestEnemy()"]
+            enemiesInLineOfSight["enemiesInLineOfSight()"]
+            nearestEnemyInLineOfSight["nearestEnemyInLineOfSight()"]
+        end
+        subgraph SensorsRow2[" "]
+            direction LR
+            canShoot["canShoot(target)"]
+            sIsNearCenter["isNearCenter(margin)"]
+            sDistanceToNearestEdge["distanceToNearestEdge()"]
+            sDirectionToNearestEdge["directionToNearestEdge()"]
+            enemiesNamed["enemiesNamed(name)"]
+        end
+    end
+
+    Position_Funcs ~~~ Arena_Funcs ~~~ List_Funcs ~~~ Sensors_Funcs
+
+    classDef row fill:none,stroke:none
+    class SensorsRow1,SensorsRow2 row
