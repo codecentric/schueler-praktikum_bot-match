@@ -6,9 +6,7 @@ Diese Anleitung geht davon aus, dass IntelliJ IDEA bereits im Vorfeld installier
 
 Für jeden Praktikums-Durchlauf legst du vorab einen eigenen Basis-Branch ausgehend von `main`an,
 z.B. `student-2026_07` (Namensschema: Jahr_Monat des Termins). Dort sollte der Ornder `docs/dozent` & `docs/pdf`
-entfernt werden (unter umständen auch die Example-Bots zumindest auf den Branches der Schüler, diese können am Ende
-gegen die Spielerbots antreten). Jedes Team
-zweigt zu Beginn seinen eigenen Branch davon ab (`student-2026_07-A/-B/-C`)
+entfernt werden. Jedes Team zweigt zu Beginn seinen eigenen Branch davon ab (`student-2026_07-A/-B/-C`)
 und pusht darauf täglich seinen Fortschritt. Details zum Ablauf (Branch
 erstellen, committen, Pull Request) stehen in
 [`docs/git-github-basics.md`](../git-github-basics.md#so-läuft-es-in-unserem-praktikum-ab)
